@@ -4,6 +4,9 @@ import java.util.Random;
 
 public class Board {
     int row, column;
+    boolean gameOver;
+    int pieces;
+    int value;
     ArrayList<Node> PitLocation = new ArrayList<>();
 
     public Board(){
@@ -17,6 +20,7 @@ public class Board {
         this.column = c;
         Originalboard = new Node[row][column];
         board = new Node[row][column];
+        pieces = r;
     }
 
     public Node[][] createBoard(Node[][] board){
@@ -109,6 +113,65 @@ public class Board {
         return null;
     }
 
+    public ArrayList<Node> getNextPlayerMoves(Node node, Node[][] b){
+        ArrayList<Node> nextMove = new ArrayList<>();
+        if(node.coordinates.x - 1 >=0){
+            if(node.coordinates.y+1 < column){//check URD
+                Node node1 = getNode(node.coordinates.x-1,node.coordinates.y+1,b);
+                if(isEmpty(node1) && !node1.isMaximizing){
+                    nextMove.add(node1);
+                }
+            }
+            if(node.coordinates.y-1 >= 0){//check ULD
+                Node node1 = getNode(node.coordinates.x-1,node.coordinates.y-1,b);
+                if(isEmpty(node1) && !node1.isMaximizing){
+                    nextMove.add(node1);
+                }
+            }
+            //check UP
+            Node node1 = getNode(node.coordinates.x-1,node.coordinates.y,b);
+            if(isEmpty(node1) && !node1.isMaximizing){
+                nextMove.add(node1);
+            }
+        }
+
+        if(node.coordinates.x+1 < row) {
+            if (node.coordinates.y + 1 < column) {//check DRD
+                Node node1 = getNode(node.coordinates.x + 1, node.coordinates.y + 1, b);
+                if(isEmpty(node1) && !node1.isMaximizing){
+                    nextMove.add(node1);
+                }
+            }
+            if (node.coordinates.y - 1 >= 0) {//check ULD
+                Node node1 = getNode(node.coordinates.x + 1, node.coordinates.y - 1, b);
+                if(isEmpty(node1) && !node1.isMaximizing){
+                    nextMove.add(node1);
+                }
+            }
+            Node node1 = getNode(node.coordinates.x + 1, node.coordinates.y, b);
+            if(isEmpty(node1) && !node1.isMaximizing){
+                nextMove.add(node1);
+            }
+        }
+
+        if(node.coordinates.y+1 < column){
+            Node node1 = getNode(node.coordinates.x, node.coordinates.y+1, b);
+            if(isEmpty(node1) && !node1.isMaximizing){
+                nextMove.add(node1);
+            }
+        }
+
+        if(node.coordinates.y-1 >= 0){
+            Node node1 = getNode(node.coordinates.x, node.coordinates.y-1, b);
+            if(isEmpty(node1) && !node1.isMaximizing){
+                nextMove.add(node1);
+            }
+        }
+
+        return nextMove;
+
+    }
+
     public ArrayList<Node> getNextMoves(Node node, Node[][] b){
         ArrayList<Node> nextMove = new ArrayList<>();
         if(node.coordinates.x - 1 >=0){
@@ -168,7 +231,7 @@ public class Board {
 
     }
 
-    public ArrayList<Node[][]> getNextBoards(ArrayList<Node> currentBoard, Node[][] b){
+    public ArrayList<Node[][]> getNextBoards(ArrayList<Node> currentBoard, Node[][] b,boolean isAgent){
 
         ArrayList<Node[][]> allBoards = new ArrayList<>();
         ArrayList<Node> moves = new ArrayList<>();
@@ -176,23 +239,34 @@ public class Board {
         for(i=0;i<row;i++){
             for(j=0;j<column;j++){//Get all possible moves of all pieces for current board
                 Node temp = getNode(i,j,b);
-                if(temp.isAgent) {
+                if(temp.isAgent && isAgent) {
                     moves = getNextMoves(temp, b);
                     b[i][j].nextValidMoves = moves;
                     currentBoard.add(b[i][j]);
 
+                }
+                else if(!isAgent && temp.isMaximizing){
+                    moves = getNextPlayerMoves(temp,b);
+                    b[i][j].nextValidMoves = moves;
+                    currentBoard.add(b[i][j]);
                 }
             }
         }
 
         for(i=0;i<currentBoard.size();i++) {
             for (j = 0; j < currentBoard.get(i).nextValidMoves.size(); j++) {
-                int x = 0;
+
                 Node[][] Board = new Node[row][column];
 
                 Board = copyBoard(b,Board);
 
-                Board = movePiece(Board, Board[currentBoard.get(i).coordinates.x][currentBoard.get(i).coordinates.y] ,Board[currentBoard.get(i).nextValidMoves.get(j).coordinates.x][currentBoard.get(i).nextValidMoves.get(j).coordinates.y], x);
+                if(isAgent) {
+                    Board = movePiece(Board, Board[currentBoard.get(i).coordinates.x][currentBoard.get(i).coordinates.y], Board[currentBoard.get(i).nextValidMoves.get(j).coordinates.x][currentBoard.get(i).nextValidMoves.get(j).coordinates.y]);
+                }
+                else{
+                    Board = movePlayerPiece(Board, Board[currentBoard.get(i).coordinates.x][currentBoard.get(i).coordinates.y], Board[currentBoard.get(i).nextValidMoves.get(j).coordinates.x][currentBoard.get(i).nextValidMoves.get(j).coordinates.y]);
+                }
+                Board[0][0].parent = b;
                 allBoards.add(Board);
 
             }
@@ -232,31 +306,220 @@ public class Board {
          return newNode;
     }
 
+    public Node[][] movePlayerPiece(Node[][] nb, Node prev,Node next){
 
-    public Node[][] movePiece(Node[][] nb, Node prev,Node next, int x){
 
-        nb[next.coordinates.x][next.coordinates.y].isAgent = true;
+        nb[next.coordinates.x][next.coordinates.y].moved = true;
+
         if(nb[prev.coordinates.x][prev.coordinates.y].wumpus){
-            nb[next.coordinates.x][next.coordinates.y].wumpus = true;
+
+            if(nb[next.coordinates.x][next.coordinates.y].isAgent) {
+
+                if (nb[next.coordinates.x][next.coordinates.y].hero) {
+                    nb[next.coordinates.x][next.coordinates.y].isBattle = true;
+                    nb[next.coordinates.x][next.coordinates.y].loose = true;
+                }
+                else if (nb[next.coordinates.x][next.coordinates.y].mage) {//Agent wins
+                    nb[next.coordinates.x][next.coordinates.y].isBattle = true;
+                    nb[next.coordinates.x][next.coordinates.y].wumpus = true;
+                    nb[next.coordinates.x][next.coordinates.y].win = true;
+                    nb[next.coordinates.x][next.coordinates.y].isMaximizing = true;
+                    nb[next.coordinates.x][next.coordinates.y].mage = false;
+                    nb[next.coordinates.x][next.coordinates.y].isAgent = false;
+                }
+                else if (nb[next.coordinates.x][next.coordinates.y].wumpus){
+                    nb[next.coordinates.x][next.coordinates.y].loose = true;//Agent and player both loose
+                    nb[next.coordinates.x][next.coordinates.y].isAgent = false;
+                    nb[next.coordinates.x][next.coordinates.y].wumpus = false;
+                    nb[next.coordinates.x][next.coordinates.y].isBattle = true;
+                    nb[next.coordinates.x][next.coordinates.y].isMaximizing = false;
+                    nb[next.coordinates.x][next.coordinates.y].samePiece = true;
+                }
+            }
+            else{
+                nb[next.coordinates.x][next.coordinates.y].wumpus = true;
+                nb[next.coordinates.x][next.coordinates.y].isMaximizing = true;
+            }
         }
         else if(nb[prev.coordinates.x][prev.coordinates.y].hero){
-            nb[next.coordinates.x][next.coordinates.y].hero = true;
+
+            if(nb[next.coordinates.x][next.coordinates.y].isAgent) {
+
+                if (nb[next.coordinates.x][next.coordinates.y].wumpus) {
+                    nb[next.coordinates.x][next.coordinates.y].win = true;//Agent wins
+                    nb[next.coordinates.x][next.coordinates.y].hero = true;
+                    nb[next.coordinates.x][next.coordinates.y].isMaximizing = true;
+                    nb[next.coordinates.x][next.coordinates.y].isBattle = true;
+                    nb[next.coordinates.x][next.coordinates.y].wumpus = false;
+                    nb[next.coordinates.x][next.coordinates.y].isAgent = false;
+                }
+                else if (nb[next.coordinates.x][next.coordinates.y].mage) {
+                    nb[next.coordinates.x][next.coordinates.y].isBattle = true;
+                    nb[next.coordinates.x][next.coordinates.y].loose = true;
+                }
+                else if (nb[next.coordinates.x][next.coordinates.y].hero){
+                    nb[next.coordinates.x][next.coordinates.y].loose = true;//Agent and player both loose
+                    nb[next.coordinates.x][next.coordinates.y].isAgent = false;
+                    nb[next.coordinates.x][next.coordinates.y].hero = false;
+                    nb[next.coordinates.x][next.coordinates.y].isBattle = true;
+                    nb[next.coordinates.x][next.coordinates.y].isMaximizing = false;
+                    nb[next.coordinates.x][next.coordinates.y].samePiece = true;
+                }
+            }
+
+            else{
+                nb[next.coordinates.x][next.coordinates.y].hero = true;
+                nb[next.coordinates.x][next.coordinates.y].isMaximizing = true;
+            }
         }
-        else{
-            nb[next.coordinates.x][next.coordinates.y].mage = true;
+        else if(nb[prev.coordinates.x][prev.coordinates.y].mage){
+
+            if(nb[next.coordinates.x][next.coordinates.y].isAgent) {
+
+                if (nb[next.coordinates.x][next.coordinates.y].wumpus) {
+                    nb[next.coordinates.x][next.coordinates.y].isBattle = true;
+                    nb[next.coordinates.x][next.coordinates.y].loose = true;
+                }
+                else if (nb[next.coordinates.x][next.coordinates.y].hero) {//Agent wins
+                    nb[next.coordinates.x][next.coordinates.y].win = true;//Agent wins
+                    nb[next.coordinates.x][next.coordinates.y].isMaximizing = true;
+                    nb[next.coordinates.x][next.coordinates.y].mage = true;
+                    nb[next.coordinates.x][next.coordinates.y].isBattle = true;
+                    nb[next.coordinates.x][next.coordinates.y].wumpus = false;
+                    nb[next.coordinates.x][next.coordinates.y].isAgent = false;
+                }
+                else if (nb[next.coordinates.x][next.coordinates.y].mage){
+                    nb[next.coordinates.x][next.coordinates.y].loose = true;//Agent and player both loose
+                    nb[next.coordinates.x][next.coordinates.y].isAgent = false;
+                    nb[next.coordinates.x][next.coordinates.y].mage = false;
+                    nb[next.coordinates.x][next.coordinates.y].isBattle = true;
+                    nb[next.coordinates.x][next.coordinates.y].isMaximizing = false;
+                    nb[next.coordinates.x][next.coordinates.y].samePiece = true;
+                }
+            }
+            else{
+                nb[next.coordinates.x][next.coordinates.y].mage = true;
+                nb[next.coordinates.x][next.coordinates.y].isMaximizing = true;
+            }
+        }
+
+        nb[prev.coordinates.x][prev.coordinates.y].mage = false;
+        nb[prev.coordinates.x][prev.coordinates.y].hero = false;
+        nb[prev.coordinates.x][prev.coordinates.y].wumpus = false;
+        nb[prev.coordinates.x][prev.coordinates.y].isMaximizing = false;
+        nb[prev.coordinates.x][prev.coordinates.y].heuristic = 0;
+
+        return nb;
+    }
+
+    public Node[][] movePiece(Node[][] nb, Node prev,Node next){
+
+
+        nb[next.coordinates.x][next.coordinates.y].moved = true;
+
+        if(nb[prev.coordinates.x][prev.coordinates.y].wumpus){
+
+            if(nb[next.coordinates.x][next.coordinates.y].isMaximizing) {
+
+                if (nb[next.coordinates.x][next.coordinates.y].hero) {
+                    nb[next.coordinates.x][next.coordinates.y].isBattle = true;
+                    nb[next.coordinates.x][next.coordinates.y].loose = true;
+                }
+                else if (nb[next.coordinates.x][next.coordinates.y].mage) {//Agent wins
+                    nb[next.coordinates.x][next.coordinates.y].isBattle = true;
+                    nb[next.coordinates.x][next.coordinates.y].wumpus = true;
+                    nb[next.coordinates.x][next.coordinates.y].win = true;
+                    nb[next.coordinates.x][next.coordinates.y].isAgent = true;
+                    nb[next.coordinates.x][next.coordinates.y].mage = false;
+                    nb[next.coordinates.x][next.coordinates.y].isMaximizing = false;
+                }
+                else if (nb[next.coordinates.x][next.coordinates.y].wumpus){
+                    nb[next.coordinates.x][next.coordinates.y].loose = true;//Agent and player both loose
+                    nb[next.coordinates.x][next.coordinates.y].isAgent = false;
+                    nb[next.coordinates.x][next.coordinates.y].wumpus = false;
+                    nb[next.coordinates.x][next.coordinates.y].isBattle = true;
+                    nb[next.coordinates.x][next.coordinates.y].isMaximizing = false;
+                    nb[next.coordinates.x][next.coordinates.y].samePiece = true;
+                }
+            }
+            else{
+                nb[next.coordinates.x][next.coordinates.y].wumpus = true;
+                nb[next.coordinates.x][next.coordinates.y].isAgent = true;
+            }
+        }
+        else if(nb[prev.coordinates.x][prev.coordinates.y].hero){
+
+            if(nb[next.coordinates.x][next.coordinates.y].isMaximizing) {
+
+                if (nb[next.coordinates.x][next.coordinates.y].wumpus) {
+                    nb[next.coordinates.x][next.coordinates.y].win = true;//Agent wins
+                    nb[next.coordinates.x][next.coordinates.y].hero = true;
+                    nb[next.coordinates.x][next.coordinates.y].isAgent = true;
+                    nb[next.coordinates.x][next.coordinates.y].isBattle = true;
+                    nb[next.coordinates.x][next.coordinates.y].wumpus = false;
+                    nb[next.coordinates.x][next.coordinates.y].isMaximizing = false;
+                }
+                else if (nb[next.coordinates.x][next.coordinates.y].mage) {
+                    nb[next.coordinates.x][next.coordinates.y].isBattle = true;
+                    nb[next.coordinates.x][next.coordinates.y].loose = true;
+                }
+                else if (nb[next.coordinates.x][next.coordinates.y].hero){
+                    nb[next.coordinates.x][next.coordinates.y].loose = true;//Agent and player both loose
+                    nb[next.coordinates.x][next.coordinates.y].isAgent = false;
+                    nb[next.coordinates.x][next.coordinates.y].hero = false;
+                    nb[next.coordinates.x][next.coordinates.y].isBattle = true;
+                    nb[next.coordinates.x][next.coordinates.y].isMaximizing = false;
+                    nb[next.coordinates.x][next.coordinates.y].samePiece = true;
+                }
+            }
+
+            else{
+                nb[next.coordinates.x][next.coordinates.y].hero = true;
+                nb[next.coordinates.x][next.coordinates.y].isAgent = true;
+            }
+        }
+        else if(nb[prev.coordinates.x][prev.coordinates.y].mage){
+
+            if(nb[next.coordinates.x][next.coordinates.y].isMaximizing) {
+
+                if (nb[next.coordinates.x][next.coordinates.y].wumpus) {
+                    nb[next.coordinates.x][next.coordinates.y].isBattle = true;
+                    nb[next.coordinates.x][next.coordinates.y].loose = true;
+                }
+                else if (nb[next.coordinates.x][next.coordinates.y].hero) {//Agent wins
+                    nb[next.coordinates.x][next.coordinates.y].win = true;//Agent wins
+                    nb[next.coordinates.x][next.coordinates.y].isAgent = true;
+                    nb[next.coordinates.x][next.coordinates.y].mage = true;
+                    nb[next.coordinates.x][next.coordinates.y].isBattle = true;
+                    nb[next.coordinates.x][next.coordinates.y].wumpus = false;
+                    nb[next.coordinates.x][next.coordinates.y].isMaximizing = false;
+                }
+                else if (nb[next.coordinates.x][next.coordinates.y].mage){
+                    nb[next.coordinates.x][next.coordinates.y].loose = true;//Agent and player both loose
+                    nb[next.coordinates.x][next.coordinates.y].isAgent = false;
+                    nb[next.coordinates.x][next.coordinates.y].mage = false;
+                    nb[next.coordinates.x][next.coordinates.y].isBattle = true;
+                    nb[next.coordinates.x][next.coordinates.y].isMaximizing = false;
+                    nb[next.coordinates.x][next.coordinates.y].samePiece = true;
+                }
+            }
+            else{
+                nb[next.coordinates.x][next.coordinates.y].mage = true;
+                nb[next.coordinates.x][next.coordinates.y].isAgent = true;
+            }
         }
 
         nb[prev.coordinates.x][prev.coordinates.y].mage = false;
         nb[prev.coordinates.x][prev.coordinates.y].hero = false;
         nb[prev.coordinates.x][prev.coordinates.y].wumpus = false;
         nb[prev.coordinates.x][prev.coordinates.y].isAgent = false;
+        nb[prev.coordinates.x][prev.coordinates.y].heuristic = 0;
 
-        x = 9;
         return nb;
     }
 
     public boolean isEmpty(Node node){
-        if(node.wumpus || node.hero || node.mage || node.isPit){
+        if(node.isPit){
             return false;
         }
         return true;

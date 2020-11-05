@@ -2,27 +2,118 @@ import java.util.*;
 
 public class AlphaBeta {
 
-    int rows,columns;
+    int rows,columns,d;
     PriorityQueue<Node> moves = new PriorityQueue<>();
-    ArrayList<Board> nextBoards = new ArrayList<>();
 
+    ArrayList<Node> currBoard = new ArrayList<>();
+    Board b_obj = new Board();
 
-    public int alphaBeta(Node node, int depth, int aplpha, int beta, boolean isMaximizing){
-      if(depth == 0 || node.isTerminal){
-          return node.heuristic;
+    public Node[][] alphaBeta(Node[][] board,Node node, int depth, int alpha, int beta, boolean isAgent){
+      if(depth == d || b_obj.gameOver){
+          return board;
       }
+        ArrayList<Node[][]> nextBoards = new ArrayList<>();
+        int i;
+      Node[][] best = null;
+      nextBoards = b_obj.getNextBoards(currBoard, board, isAgent);
+        int x;
+        for(x=0;x<nextBoards.size();x++){
+         System.out.println();
+         b_obj.printBoard(nextBoards.get(x));
+        }
 
-      int value;
+      if(isAgent){
+          nextBoards = setValues(nextBoards,true);
+          int val = Integer.MIN_VALUE;
+          for(i=0;i<nextBoards.size();i++){
+              Node[][] successor = nextBoards.get(i);
+              Node[][] nextMoveBoard = alphaBeta(successor,null,depth+1,alpha,beta,false);
+               val = Math.max(val,checkValue(nextMoveBoard));
+//              if(val>max){
+//                  max = val;
+//                  best = nextMoveBoard;
+//              }
+              alpha = Math.max(alpha,val);
+              if(alpha >= beta){
 
-      if(isMaximizing){
-          value = Integer.MIN_VALUE;
-
+                  return nextMoveBoard[0][0].parent;
+              }
+          }
       }
       else{
-          value = Integer.MAX_VALUE;
+          int val = Integer.MAX_VALUE;
+
+          nextBoards = setValues(nextBoards,false);
+
+          for(i=0;i<nextBoards.size();i++){
+
+              Node[][] successor = nextBoards.get(i);
+              Node[][] nextMoveBoard = alphaBeta(successor,null,depth+1,alpha,beta,true);
+               val = Math.min(val,checkValue(nextMoveBoard));
+//              if(val<min){
+//                  min = val;
+//                  best = nextMoveBoard;
+//              }
+              beta = Math.min(beta,val);
+              if(beta <= alpha){
+                  return nextMoveBoard;
+              }
+          }
+
       }
 
-      return 0;
+      return null;
+    }
+
+    public int checkValue(Node[][] board){
+        int i,j;
+        for(i=0;i<rows;i++){
+            for(j=0;j<columns;j++){
+                if(board[i][j].moved){
+                    if(board[i][j].isBattle){
+                        if(board[i][j].win && (board[i][j].isMaximizing || board[i][j].isAgent) ) {//Agent wins battle
+                            return 100;
+                        }
+                        else if(board[i][j].loose && !board[i][j].samePiece){//Agent looses battle
+                            return -100;
+                        }
+                        else{
+                            return -100;
+                        }
+                    }
+                    else{
+                        return 0;
+                        //Return a value for the node
+                    }
+                }
+            }
+        }
+        return -1000;
+    }
+
+    public ArrayList<Node[][]> setValues(ArrayList<Node[][]> nextMoves, boolean isMaximizing){
+        int i;
+        for(i=0;i<nextMoves.size();i++){
+            Node[][] board = nextMoves.get(0);
+            nextMoves.remove(board);
+            board[0][0].val = checkValue(board);
+            nextMoves.add(board);
+        }
+        if(isMaximizing) {
+            Collections.sort(nextMoves, new Cost());
+        }
+        else{
+            Collections.sort(nextMoves,Collections.reverseOrder(new Cost()));
+        }
+        return nextMoves;
+    }
+
+
+    public int safeValue(Node node, Node[][] board){
+        int i,j;
+        ArrayList<Node> checkNext = new ArrayList<>();
+        checkNext = b_obj.getNextMoves(node,board);
+        return 0;
     }
 
     public static void main(String args[]){
@@ -36,21 +127,23 @@ public class AlphaBeta {
      ab.rows = sc.nextInt();
      System.out.print("Enter number of columns: ");
      ab.columns = sc.nextInt();
+     System.out.print("Enter depth: ");
+     ab.d = sc.nextInt();
 
      Board obj = new Board(ab.rows, ab.columns);
      obj.board = obj.createBoard(obj.board);
      obj.printBoard(obj.board);
 
-     ArrayList<Node> list = new ArrayList<>();
-     ArrayList<Node[][]> boards = new ArrayList<>();
-     boards = obj.getNextBoards(list,obj.board);
-     int x;
-     for(x=0;x<boards.size();x++){
-         System.out.println();
-         obj.printBoard(boards.get(x));
-     }
+     ab.b_obj.row = ab.rows;
+     ab.b_obj.column = ab.columns;
+     ab.b_obj.board = obj.board;
+     ab.b_obj.pieces = ab.rows;
 
-     GUI.main(ab.rows,ab.columns, obj.board);
+       ab.alphaBeta(obj.board,null,0,0,0,true);
+
+    // GUI.main(ab.rows,ab.columns, obj.board);
 
    }
 }
+
+//        https://github.com/RodneyShag/Othello/blob/master/src/strategies/AlphaBetaStrategy.java
