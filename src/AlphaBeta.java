@@ -145,5 +145,3 @@ public class AlphaBeta {
 
    }
 }
-
-//        https://github.com/RodneyShag/Othello/blob/master/src/strategies/AlphaBetaStrategy.java
